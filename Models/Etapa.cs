@@ -21,5 +21,7 @@ namespace OSControlSystem.Models
         public DateTime? FechaFin { get; set; }
 
         public string? InformeExternoUrl { get; set; }
+        public ICollection<Parada>? Paradas { get; set; }
+        public ICollection<Reprogramacion>? Reprogramaciones { get; set; }
     }
 }

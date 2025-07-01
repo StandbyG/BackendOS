@@ -21,7 +21,7 @@ namespace OSControlSystem.Models
         public DateTime FechaInicio { get; set; }
 
         public DateTime? FechaFin { get; set; }
-        public ICollection<Etapa> Etapas { get; set; }
+        public ICollection<Etapa>? Etapas { get; set; }
 
     }
 }

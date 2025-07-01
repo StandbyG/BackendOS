@@ -163,3 +163,6 @@ C:\Users\gabri\Desktop\KomatsuPrueba\OSControlSystem\obj\Debug\net9.0\ref\OSCont
 C:\Users\gabri\Desktop\KomatsuPrueba\OSControlSystem\bin\Debug\net9.0\Swashbuckle.AspNetCore.Swagger.dll
 C:\Users\gabri\Desktop\KomatsuPrueba\OSControlSystem\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerGen.dll
 C:\Users\gabri\Desktop\KomatsuPrueba\OSControlSystem\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerUI.dll
+C:\Users\gabri\Desktop\KomatsuPrueba\OSControlSystem\bin\Debug\net9.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+C:\Users\gabri\Desktop\KomatsuPrueba\OSControlSystem\obj\Debug\net9.0\OSControlSystem.sourcelink.json
+C:\Users\gabri\Desktop\KomatsuPrueba\OSControlSystem\bin\Debug\net9.0\CsvHelper.dll

@@ -2,9 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OSControlSystem.Data;
 using OSControlSystem.Models;
+using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using OSControlSystem.DTOs;
+using CsvHelper;
+using System.Globalization;
+using System.Text;
 
 namespace OSControlSystem.Controllers
 {
@@ -64,9 +68,11 @@ namespace OSControlSystem.Controllers
             await _context.SaveChangesAsync();
             return NoContent();
         }
+        [Authorize(Roles = "Técnico,Administrador")]
         [HttpPost("{id}/iniciar")]
-        public async Task<IActionResult> IniciarOrden(int id, [FromBody] string etapa)
+        public async Task<IActionResult> IniciarOrden(int id, [FromBody] IniciarOrdenDto dto)
         {
+            var etapa = dto.Etapa;
             var orden = await _context.OrdenesServicio.FindAsync(id);
 
             if (orden == null)
@@ -207,16 +213,16 @@ namespace OSControlSystem.Controllers
                 Fecha = DateTime.Now,
                 Notificado = true // asumimos que notifica siempre
             };
-
+            
+            orden.Estado = "AST aprobado";
             _context.Reprogramaciones.Add(reprogramacion);
             await _context.SaveChangesAsync();
 
-            // 📧 Placeholder para lógica de notificación real
             Console.WriteLine($"📧 Reprogramación registrada: {dto.Motivo}");
 
             return Ok("Orden reprogramada correctamente.");
         }
-        
+
         [HttpPost("{id}/finalizar")]
         public async Task<IActionResult> FinalizarOrden(int id)
         {
@@ -258,7 +264,106 @@ namespace OSControlSystem.Controllers
 
             return Ok("Orden finalizada correctamente.");
         }
+        // TO-DO: OS con estado 'AST aprobado'
+        [HttpGet("todo")]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<OrdenServicio>>> GetToDo()
+        {
+            return await _context.OrdenesServicio
+                .Where(o => o.Estado == "AST aprobado")
+                .ToListAsync();
+        }
 
+        // IN-PROCESS: OS en ejecución
+        [HttpGet("in-process")]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<OrdenServicio>>> GetInProcess()
+        {
+            return await _context.OrdenesServicio
+                .Where(o => o.Estado == "IN-PROCESS")
+                .ToListAsync();
+        }
+
+        // DONE: OS finalizadas
+        [HttpGet("done")]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<OrdenServicio>>> GetDone()
+        {
+            return await _context.OrdenesServicio
+                .Where(o => o.Estado == "DONE")
+                .ToListAsync();
+        }
+
+        [HttpGet("{id}/exportar-csv")]
+        [Authorize]
+        public async Task<IActionResult> ExportarCsv(int id)
+        {
+            var orden = await _context.OrdenesServicio
+                .Include(o => o.Etapas)
+                    .ThenInclude(e => e.Paradas)
+                .FirstOrDefaultAsync(o => o.Id == id);
+
+            if (orden == null)
+                return NotFound("Orden no encontrada.");
+
+            // Cargar Reprogramaciones por separado (para evitar conflictos con ThenInclude)
+            await _context.Entry(orden)
+                .Collection(o => o.Etapas)
+                .Query()
+                .Include(e => e.Reprogramaciones)
+                .LoadAsync();
+
+            var rows = new List<ExportRow>();
+
+            foreach (var etapa in orden.Etapas ?? new List<Etapa>())
+            {
+                // Paradas
+                foreach (var parada in etapa.Paradas ?? new List<Parada>())
+                {
+                    var motivo = await _context.MotivosParada
+                        .Where(m => m.Id == parada.MotivoId)
+                        .Select(m => m.Descripcion)
+                        .FirstOrDefaultAsync();
+
+                    rows.Add(new ExportRow
+                    {
+                        CodigoOS = orden.Codigo,
+                        EstadoOS = orden.Estado,
+                        Etapa = etapa.Tipo,
+                        TipoRegistro = "Parada",
+                        TipoParada = parada.Tipo,
+                        Motivo = motivo ?? "Desconocido",
+                        FechaInicio = parada.Inicio,
+                        FechaFin = parada.Fin
+                    });
+                }
+
+                // Reprogramaciones
+                foreach (var repro in etapa.Reprogramaciones ?? new List<Reprogramacion>())
+                {
+                    rows.Add(new ExportRow
+                    {
+                        CodigoOS = orden.Codigo,
+                        EstadoOS = orden.Estado,
+                        Etapa = etapa.Tipo,
+                        TipoRegistro = "Reprogramación",
+                        TipoParada = null,
+                        Motivo = repro.Motivo,
+                        FechaInicio = repro.Fecha,
+                        FechaFin = null
+                    });
+                }
+            }
+
+            using var ms = new MemoryStream();
+            using var writer = new StreamWriter(ms, Encoding.UTF8);
+            using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+
+            csv.WriteRecords(rows);
+            writer.Flush();
+
+            return File(ms.ToArray(), "text/csv", $"OS_{orden.Codigo}_export.csv");
+        }
 
     }
 }
